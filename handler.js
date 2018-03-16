@@ -3,7 +3,7 @@ const { getNewIndex } = require('./get-new-index');
 const { save } = require('./save-to-db');
 const { load } = require('./load-from-db');
 
-const DOMAIN = 'short.ee';
+const DOMAIN = 'tiny.tikal.io';
 
 module.exports.getLink = (event, context, callback) => {
     if (!event.body) {
