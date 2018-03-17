@@ -6,11 +6,16 @@ service: url-shortner-nodejs-aws # NOTE: update this with your service name
 # frameworkVersion: "=X.X.X"
 plugins:
   - serverless-domain-manager
+  - serverless-dynamodb-local
+  - serverless-offline
 
 provider:
   name: aws
   runtime: nodejs6.10
   region: eu-central-1
+  environment:
+    AUTH0_CLIENT_ID: ${file(./secrets.json):AUTH0_CLIENT_ID}
+    AUTH0_CLIENT_PUBLIC_KEY: ${file(./public_key)}
 
   iamRoleStatements:
     - Effect: Allow
@@ -23,14 +28,17 @@ provider:
 
 
 functions:
+  auth:
+    handler: handler.auth
+    cors: true
   getLink:
     handler: handler.getLink
     events:
       - http:
           path: link
           method: post
+          authorizer: auth
           cors: true
-
   getUrl:
     handler: handler.getUrl
     events:
@@ -61,6 +69,26 @@ resources:
           ReadCapacityUnits: 1
           WriteCapacityUnits: 1
         TableName: url_shortener__long_urls
+    GatewayResponse:
+      Type: 'AWS::ApiGateway::GatewayResponse'
+      Properties:
+        ResponseParameters:
+          gatewayresponse.header.Access-Control-Allow-Origin: "'*'"
+          gatewayresponse.header.Access-Control-Allow-Headers: "'*'"
+        ResponseType: EXPIRED_TOKEN
+        RestApiId:
+          Ref: 'ApiGatewayRestApi'
+        StatusCode: '401'
+    AuthFailureGatewayResponse:
+      Type: 'AWS::ApiGateway::GatewayResponse'
+      Properties:
+        ResponseParameters:
+          gatewayresponse.header.Access-Control-Allow-Origin: "'*'"
+          gatewayresponse.header.Access-Control-Allow-Headers: "'*'"
+        ResponseType: UNAUTHORIZED
+        RestApiId:
+          Ref: 'ApiGatewayRestApi'
+        StatusCode: '401'
 
 custom:
   customDomain:
@@ -69,3 +97,10 @@ custom:
     stage: ${self:provider.stage}
     createRoute53Record: true
 
+  dynamodb:
+    start:
+      port: 8000
+      inMemory: true
+      migrate: true
+    migration:
+      dir: offline/migrations
